@@ -2,6 +2,14 @@
 
 AI-powered code assistant with E2B sandbox integration.
 
+## Prerequisites
+
+This project uses [Bun](https://bun.sh) - make sure you have it installed:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
 ## Setup
 
 ### 1. Environment Variables
@@ -26,7 +34,7 @@ E2B_API_KEY="your_e2b_api_key_here"
 Push the database schema:
 
 ```bash
-npm run db:push
+bun run db:push
 ```
 
 ### 3. Build E2B Template
@@ -34,7 +42,7 @@ npm run db:push
 Build the production E2B template:
 
 ```bash
-npm run e2b:build:prod
+bun run e2b:build:prod
 ```
 
 ### 4. Run Development Server
@@ -42,20 +50,20 @@ npm run e2b:build:prod
 Start the development server:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 The app will be available at [http://localhost:3000](http://localhost:3000)
 
 ## Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run db:push` - Push database schema
-- `npm run db:studio` - Open Prisma Studio
-- `npm run e2b:build:dev` - Build E2B template for development
-- `npm run e2b:build:prod` - Build E2B template for production
+- `bun run dev` - Start development server
+- `bun run build` - Build for production
+- `bun run start` - Start production server
+- `bun run db:push` - Push database schema
+- `bun run db:studio` - Open Prisma Studio
+- `bun run e2b:build:dev` - Build E2B template for development
+- `bun run e2b:build:prod` - Build E2B template for production
 
 ## Getting API Keys
 
