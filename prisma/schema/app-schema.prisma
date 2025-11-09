@@ -1,0 +1,39 @@
+model Repository {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+  url  String
+
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentSessions  AgentSession[]
+
+  @@unique([organizationId, name])
+}
+
+model AgentSession {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repositoryId String
+
+  sandboxId         String
+  publicSandboxUrls PublicSandboxUrl[]
+}
+
+model PublicSandboxUrl {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  url   String
+  port  Int
+  label String?
+
+  agentSession   AgentSession @relation(fields: [agentSessionId], references: [id], onDelete: Cascade)
+  agentSessionId String
+}
