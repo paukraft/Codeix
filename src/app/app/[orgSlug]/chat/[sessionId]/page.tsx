@@ -148,6 +148,10 @@ export default function SessionPage() {
   const resetChat = useChatReset()
   const reloadPreviewRef = useRef<(() => void) | null>(null)
 
+  useEffect(() => {
+    resetChat()
+  }, [sessionId, resetChat])
+
   const { data: session, isLoading } = api.agentSession.get.useQuery(
     {
       orgSlug,

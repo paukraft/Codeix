@@ -49,9 +49,8 @@ import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithToolCalls,
   type ToolUIPart,
-  type UIMessage,
 } from 'ai'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocalStorage } from 'usehooks-ts'
 
 const SuggestionsWithController = () => {
@@ -88,83 +87,37 @@ export const SessionChat = ({ sessionId }: { sessionId: string }) => {
   const [storedModel] = useLocalStorage('chat-model', DEFAULT_MODEL)
   const model = isValidModel(storedModel) ? storedModel : DEFAULT_MODEL
 
-  // Load persisted messages from localStorage
-  const storageKey = `chat-messages-${sessionId}`
-  const [persistedMessages, setPersistedMessages] = useLocalStorage<
-    UIMessage[]
-  >(storageKey, [])
-  const [isInitialized, setIsInitialized] = useState(false)
+  const { messages, sendMessage, status, stop, addToolResult } = useChat({
+    id: sessionId,
+    transport: new DefaultChatTransport({
+      api: chatConfig.api,
+      body: { sessionId, model },
+    }),
+    onFinish: ({ messages: finishedMessages }) => {
+      chatConfig.onFinish(finishedMessages)
+    },
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    // Handle client-side tools
+    onToolCall: async ({ toolCall }) => {
+      if (toolCall.toolName === 'refreshWebPreview') {
+        const input = toolCall.input as { reason?: string } | undefined
 
-  const { messages, sendMessage, status, stop, addToolResult, setMessages } =
-    useChat({
-      transport: new DefaultChatTransport({
-        api: chatConfig.api,
-        body: { sessionId, model },
-      }),
-      onFinish: ({ messages: finishedMessages }) => {
-        // Persist messages to localStorage after completion
-        setPersistedMessages(finishedMessages)
-        chatConfig.onFinish(finishedMessages)
-      },
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
-      // Handle client-side tools
-      onToolCall: async ({ toolCall }) => {
-        if (toolCall.toolName === 'refreshWebPreview') {
-          const input = toolCall.input as { reason?: string } | undefined
+        // Trigger the web preview reload
+        webPreviewActions?.reloadPreview()
 
-          // Trigger the web preview reload
-          webPreviewActions?.reloadPreview()
-
-          // Return the result to the AI
-          void addToolResult({
-            tool: 'refreshWebPreview',
-            toolCallId: toolCall.toolCallId,
-            output: {
-              refreshed: true,
-              reason: input?.reason ?? 'Manual refresh',
-              timestamp: new Date().toISOString(),
-            },
-          })
-        }
-      },
-    })
-
-  // Load persisted messages on mount
-  useEffect(() => {
-    if (!isInitialized && persistedMessages.length > 0) {
-      setMessages(persistedMessages)
-      setIsInitialized(true)
-    } else if (!isInitialized) {
-      setIsInitialized(true)
-    }
-  }, [persistedMessages, isInitialized, setMessages])
-
-  // Persist messages when they change (debounced to avoid excessive writes)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  useEffect(() => {
-    if (!isInitialized) return
-
-    // Clear previous timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-
-    // Save immediately if messages are empty (chat cleared) or debounce for streaming updates
-    if (messages.length === 0) {
-      setPersistedMessages([])
-    } else {
-      // Debounce saves during streaming to avoid excessive localStorage writes
-      saveTimeoutRef.current = setTimeout(() => {
-        setPersistedMessages(messages)
-      }, 500)
-    }
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
+        // Return the result to the AI
+        void addToolResult({
+          tool: 'refreshWebPreview',
+          toolCallId: toolCall.toolCallId,
+          output: {
+            refreshed: true,
+            reason: input?.reason ?? 'Manual refresh',
+            timestamp: new Date().toISOString(),
+          },
+        })
       }
-    }
-  }, [messages, isInitialized, setPersistedMessages])
+    },
+  })
 
   // Track which publishPort tool calls we've already invalidated for
   const invalidatedToolCallIds = useRef(new Set<string>())
@@ -199,7 +152,10 @@ export const SessionChat = ({ sessionId }: { sessionId: string }) => {
     if (!last || last.role !== 'assistant') return
 
     last.parts.forEach((part) => {
-      if (!('type' in part) || !String((part as { type?: string }).type ?? '').startsWith('tool-'))
+      if (
+        !('type' in part) ||
+        !String((part as { type?: string }).type ?? '').startsWith('tool-')
+      )
         return
 
       const toolPart = part as ToolUIPart

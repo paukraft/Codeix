@@ -1,10 +1,10 @@
-import { createRepoSandbox, killSandbox } from '@/lib/e2b-helpers'
+import { createRepoSandbox, killSandbox, setEnvVars } from '@/lib/e2b-helpers'
 import { prisma } from '@/server/db'
+import { Sandbox } from '@e2b/code-interpreter'
 import { TRPCError } from '@trpc/server'
 import z from 'zod'
 import { createTRPCRouter } from '../trpc'
 import { hasOrgAccess } from '../trpc-procedures'
-import { Sandbox } from '@e2b/code-interpreter'
 
 export const agentSessionRouter = createTRPCRouter({
   list: hasOrgAccess.query(async ({ ctx }) => {
@@ -184,32 +184,7 @@ export const agentSessionRouter = createTRPCRouter({
         }
 
         const sandbox = await Sandbox.connect(session.sandboxId)
-
-        // Write env vars to ~/.bashrc so they persist across commands
-        const exportLines = Object.entries(envRecord)
-          .map(([key, value]) => {
-            // Escape single quotes in the value
-            const escapedValue = value.replace(/'/g, "'\\''")
-            return `export ${key}='${escapedValue}'`
-          })
-          .join('\n')
-
-        // Append to .bashrc
-        const bashrcPath = '/home/user/.bashrc'
-        await sandbox.commands.run(
-          `echo '\n# Environment variables added via Codeix\n${exportLines}' >> ${bashrcPath}`,
-        )
-
-        // Also write to .env file for tools that read from it
-        const envContent = Object.entries(envRecord)
-          .map(([key, value]) => {
-            // Escape double quotes in the value
-            const escapedValue = value.replace(/"/g, '\\"')
-            return `${key}="${escapedValue}"`
-          })
-          .join('\n')
-
-        await sandbox.files.write('/home/user/repo/.env', envContent)
+        await setEnvVars({ sandbox, envVars: envRecord })
 
         return { success: true, count: Object.keys(envRecord).length }
       } catch (err) {

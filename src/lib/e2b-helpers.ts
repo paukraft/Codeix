@@ -797,3 +797,40 @@ export const waitForHttpOk = async (opts: {
   }
   return false
 }
+
+// -- Environment variables ----------------------------------------------------
+
+export const setEnvVars = async (opts: {
+  sandbox: Sandbox
+  envVars: Record<string, string>
+  repoPath?: string
+}) => {
+  const { sandbox, envVars } = opts
+  const repoPath = opts.repoPath ?? defaultRepoPath
+
+  if (Object.keys(envVars).length === 0) return
+
+  // Write to .bashrc for persistence across shell sessions
+  const exportLines = Object.entries(envVars)
+    .map(([key, value]) => {
+      const escapedValue = value.replace(/'/g, `'\\''`)
+      return `export ${key}='${escapedValue}'`
+    })
+    .join('\n')
+
+  const bashrcPath = '/home/user/.bashrc'
+  await run(
+    sandbox,
+    `echo '\n# Environment variables added via Codeix\n${exportLines}' >> ${shEscape(bashrcPath)}`,
+  )
+
+  // Write to .env file in repo for tools that read from it
+  const envContent = Object.entries(envVars)
+    .map(([key, value]) => {
+      const escapedValue = value.replace(/"/g, '\\"')
+      return `${key}="${escapedValue}"`
+    })
+    .join('\n')
+
+  await sandbox.files.write(`${repoPath}/.env`, envContent)
+}
